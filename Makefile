@@ -3,7 +3,7 @@ CXXFLAGS = -march=native -O3 -Wpedantic -Wall -Wextra -Wsign-conversion \
 					-Wconversion -std=c++2b -Isrc -IuSockets/src -flto=auto
 IFLAGS = -I/usr/local/include/uWebSockets -I/usr/local/include/uSockets \
 				 -isystem /usr/local/include/glaze
-LDFLAGS = -L$(shell brew --prefix openssl)/lib uWebSockets/uSockets/*.o -lz
+LDFLAGS = -L/usr/lib/x86_64-linux-gnu uWebSockets/uSockets/*.o -lz
 
 SRC_DIR = src
 SRC_FILES = $(SRC_DIR)/example.cpp $(SRC_DIR)/benchmark.cpp $(SRC_DIR)/main.cpp

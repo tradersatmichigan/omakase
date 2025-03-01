@@ -7,7 +7,7 @@
 #include <vector>
 
 static constexpr int NUM_ASSETS = 6;
-static constexpr int MAX_USERS = 150;
+static constexpr int MAX_USERS = 1000;
 
 using user_t = uint8_t;
 using order_id_t = uint32_t;

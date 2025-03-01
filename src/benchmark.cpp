@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <iostream>
 #include <mutex>
+#include <numeric>
 #include <random>
+#include <ratio>
 #include <thread>
 #include <vector>
 
@@ -18,8 +20,8 @@ exchange_t exchange;
 static constexpr size_t NUM_THREADS = 6;
 static_assert(0 < NUM_THREADS && NUM_THREADS <= NUM_ASSETS);
 
-static constexpr int NUM_USERS = 100;
-static constexpr int ORDERS_PER_ASSET = 10'000'000;
+static constexpr int NUM_USERS = 1000;
+static constexpr int ORDERS_PER_ASSET = 6'000'000 / NUM_THREADS;
 
 static constexpr price_t BENCHMARK_CASH = 4'000'000'000;
 static constexpr std::array<volume_t, NUM_ASSETS> BENCHMARK_ASSETS = {
@@ -39,9 +41,10 @@ std::vector<user_t> register_users() {
   return res;
 }
 
+std::default_random_engine e1(42);
+
 std::vector<order_t> generate_orders(asset_t asset,
                                      const std::vector<user_t>& users) {
-  std::default_random_engine e1(42);
   std::uniform_int_distribution<uint32_t> side_generator(0, 1);
   std::uniform_int_distribution<size_t> id_generator(0, users.size() - 1);
   std::uniform_int_distribution<price_t> price_generator(MIN_PRICE, MAX_PRICE);
@@ -65,21 +68,29 @@ std::vector<order_t> generate_orders(asset_t asset,
 auto benchmark(asset_t asset, const std::vector<user_t>& users) -> void {
   std::vector<order_t> orders = generate_orders(asset, users);
 
-  auto t_start = std::chrono::high_resolution_clock::now();
-  for (auto& order : orders) {
-    auto res = exchange.place_order(order);
-    if (res.error.has_value()) {
-      std::scoped_lock lock(output_mutex);
-      std::cout << res.error.value() << '\n';
-    }
-  }
-  auto t_end = std::chrono::high_resolution_clock::now();
+  std::vector<std::chrono::duration<double, std::milli>> response_times;
+  response_times.reserve(orders.size());
 
+  for (auto& order : orders) {
+    auto t_start = std::chrono::high_resolution_clock::now();
+    auto res = exchange.place_order(order);
+    auto t_end = std::chrono::high_resolution_clock::now();
+    response_times.emplace_back(t_end - t_start);
+    // if (res.error.has_value()) {
+    //   std::scoped_lock lock(output_mutex);
+    //   std::cout << res.error.value() << '\n';
+    // }
+  }
+
+  std::chrono::duration<double> total_time =
+      std::accumulate(response_times.begin(), response_times.end(),
+                      std::chrono::duration<double, std::milli>(0.0));
+  std::chrono::duration<double, std::milli> average_response_time =
+      total_time / static_cast<float>(orders.size());
   {
     std::scoped_lock lock(output_mutex);
-    std::cout << "Placing orders took: "
-              << std::chrono::duration<double, std::milli>(t_end - t_start)
-              << '\n';
+    std::cout << "Placing orders took: " << total_time << '\n';
+    std::cout << "Average time per order: " << average_response_time << "\n";
   }
 }
 

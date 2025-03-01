@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <optional>
@@ -36,7 +37,7 @@ struct exchange_t {
     entry.selling_power[next_asset] = STARTING_AMOUNTS[next_asset];
     entry.cash_held = STARTING_CASH[next_asset];
     entry.buying_power = STARTING_CASH[next_asset];
-    next_asset = (next_asset + 1) % NUM_ASSETS;
+    next_asset = static_cast<asset_t>(next_asset + 1) % NUM_ASSETS;
     return num_users++;
   }
 
