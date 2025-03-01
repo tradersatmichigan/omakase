@@ -6,6 +6,8 @@
 #include "App.h"
 #include "glaze/json/write.hpp"
 
+#include "models.hpp"
+
 // API setup
 constexpr std::string EXAMPLE_API_ENDPOINT = "/api/greeter";
 constexpr int PORT = 3000;
@@ -69,11 +71,6 @@ void run_api() {
   app.run();
 }
 
-struct json_struct {
-  std::string_view key;
-  int value;
-};
-
 int main() {
   std::thread api_thread(run_api);
 
@@ -88,13 +85,14 @@ int main() {
   api_thread.join();
 
   // some JSON serialization/deserialization
-  std::string json_str = R"({"key": "something", "value": 10})";
-  json_struct data;
-  auto ec = glz::read_json(data, json_str);
+  std::string json_str =
+      R"({"id": 0, "price": 10, "volume": 1, "user": 0, "asset": 6, "side": 0})";
+  order_t order{};
+  auto ec = glz::read_json(order, json_str);
   if (ec) {
     // handle error
     std::cout << ec.custom_error_message << '\n';
   } else {
-    std::cout << glz::write_json(data).value_or("Error encoding JSON") << '\n';
+    std::cout << glz::write_json(order).value_or("Error encoding JSON") << '\n';
   }
 }
