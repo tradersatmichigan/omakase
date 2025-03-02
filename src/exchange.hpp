@@ -1,27 +1,55 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
-#include <atomic>
+#include <cassert>
 #include <cstdint>
-#include <mutex>
 #include <optional>
+#include <vector>
 
-#include "models.hpp"
+#include "heap.hpp"
+#include "types.hpp"
 
 struct exchange_t {
   user_t num_users = 0;
   uint8_t next_asset = CALIFORNIA_ROLL;
-  std::atomic<uint32_t> order_id = 0;
-  std::mutex all_users_mutex;
+  order_id_t order_id = 0;
   std::array<user_entry_t, MAX_USERS> user_entries = {};
-  std::array<std::mutex, MAX_USERS> user_mutexes = {};
   std::array<std::vector<order_t>, NUM_ASSETS> bids = {};
   std::array<std::vector<order_t>, NUM_ASSETS> asks = {};
-  std::array<std::mutex, NUM_ASSETS> asset_mutexes = {};
 
-  user_t register_user(price_t cash,
-                       std::array<volume_t, NUM_ASSETS> starting_amounts) {
-    std::scoped_lock lock(all_users_mutex);
+  bool verify_state() {
+    for (user_t user = 0; user < num_users; ++user) {
+      auto& user_entry = user_entries[user];
+      price_t expected_buying_power = user_entry.cash_held;
+      for (const auto& heap : bids) {
+        for (const auto& order : heap) {
+          if (order.user == user) {
+            expected_buying_power -= order.price * order.volume;
+          }
+        }
+        assert(std::ranges::is_heap(heap, cmp(BID)));
+      }
+      assert(expected_buying_power == user_entry.buying_power);
+
+      for (asset_t asset = CALIFORNIA_ROLL; asset < NUM_ASSETS;
+           asset = static_cast<asset_t>(asset + 1)) {
+        volume_t expected_selling_power = user_entry.amount_held[asset];
+        for (const auto& order : asks[asset]) {
+          if (order.user == user) {
+            expected_selling_power -= order.volume;
+          }
+        }
+
+        assert(std::ranges::is_heap(asks[asset], cmp(ASK)));
+        assert(expected_selling_power == user_entry.selling_power[asset]);
+      }
+    }
+    return true;
+  }
+
+  [[nodiscard]] user_t register_user(
+      price_t cash, std::array<volume_t, NUM_ASSETS> starting_amounts) {
     auto& entry = user_entries[num_users];
     entry.cash_held = cash;
     entry.buying_power = cash;
@@ -30,8 +58,7 @@ struct exchange_t {
     return num_users++;
   }
 
-  user_t register_user() {
-    std::scoped_lock lock(all_users_mutex);
+  [[nodiscard]] user_t register_user() {
     auto& entry = user_entries[num_users];
     entry.amount_held[next_asset] = STARTING_AMOUNTS[next_asset];
     entry.selling_power[next_asset] = STARTING_AMOUNTS[next_asset];
@@ -41,7 +68,8 @@ struct exchange_t {
     return num_users++;
   }
 
-  std::optional<std::string_view> validate_and_reserve(const order_t& order) {
+  [[nodiscard]] std::optional<std::string_view> validate_order(
+      const order_t& order) {
     if (order.user >= num_users) {
       return "Invalid user.";
     }
@@ -51,37 +79,36 @@ struct exchange_t {
     if (order.volume <= 0) {
       return "Invalid volume.";
     }
-    std::scoped_lock lock(user_mutexes[order.user]);
-    auto& user_entry = user_entries[order.user];
+    const auto& user_entry = user_entries[order.user];
     switch (order.side) {
-      case BID: {
-        price_t order_value = order.price * order.volume;
-        if (order_value > user_entry.buying_power) {
+      case BID:
+        if (order.price * order.volume > user_entry.buying_power) {
           return "Insufficient buying power.";
         }
-        user_entry.buying_power -= order_value;
         break;
-      }
-      case ASK: {
+      case ASK:
         if (order.volume > user_entry.selling_power[order.asset]) {
           return "Insufficient selling power.";
         }
-        user_entry.selling_power[order.asset] -= order.volume;
         break;
-      }
     }
-    return {};
+    return std::nullopt;
   }
 
   void add_order(const order_t& order) {
+    switch (order.side) {
+      case BID:
+        user_entries[order.user].buying_power -= order.price * order.volume;
+        break;
+      case ASK:
+        user_entries[order.user].selling_power[order.asset] -= order.volume;
+        break;
+    }
     auto& orders = (order.side == BID ? bids : asks)[order.asset];
-    orders.push_back(order);
-    std::ranges::push_heap(orders, [&order](const auto& lhs, const auto& rhs) {
-      return order.side == BID ? lhs.price < rhs.price : lhs.price > rhs.price;
-    });
+    push(orders, order);
   }
 
-  OrderResult match_order(order_t& order) {
+  [[nodiscard]] OrderResult match_order(order_t& order) {
     auto& opposing_orders = (order.side == BID ? asks : bids)[order.asset];
     auto is_match = [&order](const order_t& other) {
       return order.side == BID ? order.price >= other.price
@@ -99,12 +126,7 @@ struct exchange_t {
                           order.side == BID ? other.user : order.user,
                           order.asset);
       if (other.volume == 0) {
-        std::ranges::push_heap(
-            opposing_orders, [&other](const auto& lhs, const auto& rhs) {
-              return other.side == BID ? lhs.price < rhs.price
-                                       : lhs.price > rhs.price;
-            });
-        opposing_orders.pop_back();
+        pop(opposing_orders, other.side);
       }
     }
     if (order.volume > 0) {
@@ -113,71 +135,69 @@ struct exchange_t {
     return {.error = {}, .trades = trades, .unmatched = {}};
   }
 
-  void execute_trade(side_t taker_side, const trade_t& trade) {
-    user_t taker = taker_side == BID ? trade.buyer : trade.seller;
-    user_t maker = taker_side == BID ? trade.seller : trade.buyer;
-    uint32_t order_cost = trade.price * trade.volume;
-    switch (taker_side) {
+  void execute_trade(const order_t& incoming_order, const trade_t& trade) {
+    user_t taker = incoming_order.side == BID ? trade.buyer : trade.seller;
+    user_t maker = incoming_order.side == BID ? trade.seller : trade.buyer;
+    uint32_t trade_cost = trade.price * trade.volume;
+    switch (incoming_order.side) {
       case BID:
-        user_entries[maker].cash_held += order_cost;
-        user_entries[maker].buying_power += order_cost;
-        user_entries[taker].cash_held -= order_cost;
-        // user_entries[taker].buying_power -= order_cost;
+        user_entries[maker].cash_held += trade_cost;
+        user_entries[maker].buying_power += trade_cost;
+        user_entries[taker].cash_held -= trade_cost;
+        user_entries[taker].buying_power -= trade_cost;
 
         user_entries[maker].amount_held[trade.asset] -= trade.volume;
-        // user_entries[maker].selling_power[asset] -= volume;
+        // user_entries[maker].selling_power[trade.asset] -= trade.volume;
         user_entries[taker].amount_held[trade.asset] += trade.volume;
         user_entries[taker].selling_power[trade.asset] += trade.volume;
         break;
       case ASK:
-        user_entries[maker].cash_held -= order_cost;
-        // user_entries[maker].buying_power -= order_cost;
-        user_entries[taker].cash_held += order_cost;
-        user_entries[taker].buying_power += order_cost;
+        user_entries[maker].cash_held -= trade_cost;
+        // user_entries[maker].buying_power -= trade_cost;
+        user_entries[taker].cash_held += trade_cost;
+        user_entries[taker].buying_power += trade_cost;
 
         user_entries[maker].amount_held[trade.asset] += trade.volume;
         user_entries[maker].selling_power[trade.asset] += trade.volume;
         user_entries[taker].amount_held[trade.asset] -= trade.volume;
-        // user_entries[taker].selling_power[asset] -= volume;
+        user_entries[taker].selling_power[trade.asset] -= trade.volume;
         break;
     }
   }
 
-  void execute_trades(side_t taker_side, const std::vector<trade_t>& trades) {
-    if (trades.empty()) {
-      return;
-    }
-    for (const auto& trade : trades) {
-      if (trade.buyer == trade.seller) {
-        std::scoped_lock lock(user_mutexes[trade.buyer]);
-        execute_trade(taker_side, trade);
-      } else {
-        // when executing trades, ensure that we acquire the lock for the user with
-        // the lowest id first to avoid deadlock
-        std::scoped_lock lock_min(
-            user_mutexes[std::min(trade.buyer, trade.seller)]);
-        std::scoped_lock lock_max(
-            user_mutexes[std::max(trade.buyer, trade.seller)]);
-        execute_trade(taker_side, trade);
-      }
-    }
-  }
-
-  OrderResult place_order(order_t& order) {
-    std::optional<std::string_view> err = validate_and_reserve(order);
+  [[nodiscard]] OrderResult place_order(order_t& order) {
+    std::optional<std::string_view> err = validate_order(order);
     if (err.has_value()) {
       return {.error = err, .trades = {}, .unmatched = {}};
     }
     order.id = order_id++;
     OrderResult result{};
     {
-      std::scoped_lock lock(asset_mutexes[order.asset]);
       result = match_order(order);
       if (result.unmatched.has_value()) {
         add_order(result.unmatched.value());
       }
     }
-    execute_trades(order.side, result.trades);
+    for (const auto& trade : result.trades) {
+      execute_trade(order, trade);
+    }
     return result;
+  }
+
+  [[nodiscard]] std::optional<order_t> cancel_order(asset_t asset, side_t side,
+                                                    order_id_t order_id) {
+    auto order = remove((side == BID ? bids : asks)[asset], order_id, side);
+    if (!order.has_value()) {
+      return std::nullopt;
+    }
+    switch (side) {
+      case BID:
+        user_entries[order->user].buying_power += order->price * order->volume;
+        break;
+      case ASK:
+        user_entries[order->user].selling_power[asset] += order->volume;
+        break;
+    }
+    return order;
   }
 };

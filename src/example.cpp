@@ -6,7 +6,7 @@
 #include "App.h"
 #include "glaze/json/write.hpp"
 
-#include "models.hpp"
+#include "types.hpp"
 
 // API setup
 constexpr std::string EXAMPLE_API_ENDPOINT = "/api/greeter";

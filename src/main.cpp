@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "exchange.hpp"
-#include "models.hpp"
+#include "types.hpp"
 
 int main() {
   exchange_t exchange;
@@ -21,7 +21,7 @@ int main() {
   exchange.place_order(order0);
   order_t order1 = {.id = 0,
                     .price = 100,
-                    .volume = 1,
+                    .volume = 2,
                     .user = user1,
                     .asset = CALIFORNIA_ROLL,
                     .side = BID};
