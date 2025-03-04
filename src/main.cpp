@@ -1,36 +1,105 @@
-#include <cstdint>
+#include <charconv>
+#include <iostream>
+#include <string>
+#include <thread>
 
 #include <glaze/glaze.hpp>
-#include <iostream>
+#include "App.h"
 
-#include "exchange.hpp"
 #include "types.hpp"
 
+using namespace std::chrono_literals;
+
+// API setup
+constexpr std::string STATE_URL = "/api/state";
+constexpr int PORT = 3000;
+
+// per-socket information, if we need it
+struct SocketData {};
+
+// default "topic" that websockets can subscribe to
+constexpr std::string DEFAULT_TOPIC = "default";
+
+constexpr int IDLE_TIMEOUT = 10;
+
+void get_state(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
+  user_t user_id{0};
+  auto user_str = req->getQuery("user");
+  auto parse_result = std::from_chars(
+      user_str.data(), user_str.data() + user_str.size(), user_id);
+  if (parse_result.ec == std::errc::invalid_argument) {
+    std::cout << "invalid\n";
+  } else {
+    std::cout << static_cast<int>(user_id) << '\n';
+  }
+
+  std::cout << "Iterate through headers:\n";
+  for (auto iter = req->begin(); iter != req->end(); ++iter) {
+    std::cout << iter.ptr->key << ": " << iter.ptr->value << "\n";
+  }
+  // send a response
+  res->write("Hello, world!\n");
+  // close the request
+  res->end();
+}
+
+// us_listen_socket_t* socket = nullptr;
+us_listen_socket_t* api_socket = nullptr;
+
+void run_api() {
+  uWS::SSLApp app = uWS::SSLApp();
+  app.get(STATE_URL, get_state);
+  app.listen(PORT, [](us_listen_socket_t* listen_socket) {
+    if (listen_socket) {
+      api_socket = listen_socket;
+      std::cout << "Listening on port " << PORT << "\n\n";
+    }
+  });
+  app.ws<SocketData>(
+      "/ws/broadcast",
+      {
+          .idleTimeout = IDLE_TIMEOUT,
+          .open =
+              [](uWS::WebSocket<true, true, SocketData>* ws) {
+                // subscribe all incoming connections to default topic
+                // (i.e., broadcast group)
+                ws->subscribe(DEFAULT_TOPIC);
+              },
+          .message =
+              [&app](uWS::WebSocket<true, true, SocketData>* ws,
+                     std::string_view message, uWS::OpCode op_code) {
+                // send this websocket a message back
+                ws->send("hello there\n");
+                std::this_thread::sleep_for(2000ms);
+                // publish message to all connections
+                app.publish(DEFAULT_TOPIC, message, op_code);
+              },
+      });
+  app.run();
+}
+
 int main() {
-  exchange_t exchange;
-  user_t user0 = exchange.register_user();
-  user_t user1 = exchange.register_user();
-  // std::cout << static_cast<uint32_t>(user0) << '\n';
-  order_t order0 = {.id = 0,
-                    .price = 100,
-                    .volume = 1,
-                    .user = user0,
-                    .asset = CALIFORNIA_ROLL,
-                    .side = ASK};
-  // std::cout << glz::write_json(order).value_or("Error encoding JSON") << '\n';
-  exchange.place_order(order0);
-  order_t order1 = {.id = 0,
-                    .price = 100,
-                    .volume = 2,
-                    .user = user1,
-                    .asset = CALIFORNIA_ROLL,
-                    .side = BID};
-  OrderResult result = exchange.place_order(order1);
-  // std::cout
-  //     << glz::write_json(exchange.user_entries).value_or("Error encoding JSON")
-  //     << '\n';
-  // std::cout << glz::write_json(exchange.bids[order0.asset])
-  //                  .value_or("Error encoding JSON")
-  //           << '\n';
-  std::cout << glz::write_json(result).value_or("Error encoding JSON") << '\n';
+  std::thread api_thread(run_api);
+
+  std::cout << "Type \"quit\" to quit: \n";
+  std::string input;
+  while (std::cin >> input && input != "quit") {}
+
+  // close the socket when we want to shut down the server, allowing us to join
+  if (api_socket != nullptr) {
+    us_listen_socket_close(0, api_socket);
+  }
+  api_thread.join();
+
+  // some JSON serialization/deserialization
+  std::string json_str =
+      R"({"id": 0, "price": 10, "volume": 1, "user": 0, "asset": 6, "side": 0})";
+  order_t order{};
+  auto ec = glz::read_json(order, json_str);
+  if (ec) {
+    // handle error
+    std::cout << ec.custom_error_message << '\n';
+  } else {
+    std::cout << glz::write_json(order).value_or("Error encoding JSON") << '\n';
+  }
 }

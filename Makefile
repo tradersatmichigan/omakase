@@ -14,13 +14,13 @@ SRC_DIR=src
 SRC_FILES=$(SRC_DIR)/example.cpp $(SRC_DIR)/benchmark.cpp $(SRC_DIR)/main.cpp
 EXECUTABLES=$(patsubst $(SRC_DIR)/%.cpp,%,$(SRC_FILES))
 
-all: uSockets main
+default: main
+
+frontend:
+	bun build --outdir ./static/js --target browser frontend/js/index.tsx
 
 uSockets:
 	$(MAKE) -C uWebSockets/uSockets
-
-main:
-	$(CXX) $(CXXFLAGS) $(IFLAGS) $(SRC_FILES) $(LDFLAGS) -o main
 
 %: $(SRC_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) $(IFLAGS) $< $(LDFLAGS) -o $@

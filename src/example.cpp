@@ -20,7 +20,7 @@ constexpr std::string DEFAULT_TOPIC = "default";
 
 constexpr int IDLE_TIMEOUT = 10;
 
-void greet(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
+void get_state(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
   // get a header value
   // NOTE: we will probably use headers for passwordless, Kahoot-esque auth
   // system
@@ -42,7 +42,7 @@ us_listen_socket_t* api_socket = nullptr;
 
 void run_api() {
   uWS::SSLApp app = uWS::SSLApp();
-  app.get(EXAMPLE_API_ENDPOINT, greet);
+  app.get(EXAMPLE_API_ENDPOINT, get_state);
   app.listen(PORT, [](us_listen_socket_t* listen_socket) {
     if (listen_socket) {
       api_socket = listen_socket;
