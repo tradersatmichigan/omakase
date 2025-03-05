@@ -3,12 +3,14 @@ import { YAxis, ResponsiveContainer, AreaChart, Area } from "recharts";
 
 const generateRandomDataPoint = (prevprice: number) => {
   return {
-    price: Math.max(0, prevprice + (Math.random() * 2 - 1)),
+    price: Math.round(Math.max(0, prevprice + (Math.random() * 5 - 2.5))),
   };
 };
 
 const Chart = () => {
-  const [data, setData] = useState([{ price: Math.random() * 100 }]);
+  const [data, setData] = useState([
+    { price: Math.round(Math.random() * 100) },
+  ]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -17,7 +19,7 @@ const Chart = () => {
         const newPoint = generateRandomDataPoint(lastPoint.price);
         return [...prevData, newPoint];
       });
-    }, 10);
+    }, 500);
 
     return () => clearInterval(interval);
   }, []);
@@ -43,12 +45,12 @@ const Chart = () => {
           tick={{ fill: "white", fontFamily: "Cascadia Code" }}
         />
         <Area
-          type="monotone"
+          type="linear"
           dataKey="price"
           stroke="#ffffff"
           strokeWidth={1}
           dot={false}
-          // animationDuration={0}
+          animationDuration={0}
           fillOpacity={1}
           fill="url(#gradient)"
         />

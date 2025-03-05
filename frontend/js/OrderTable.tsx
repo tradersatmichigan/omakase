@@ -16,10 +16,12 @@ const OrderTable = ({ asset, side }: { asset: asset_t; side: side_t }) => {
     { price: 19, volume: 4 },
     { price: 20, volume: 4 },
     { price: 21, volume: 4 },
+    { price: 22, volume: 4 },
+    { price: 23, volume: 4 },
   ];
 
   return (
-    <div className="asset-item">
+    <div className="asset-item table-container">
       <h4>{side === side_t.BID ? "Bids" : "Asks"}</h4>
       <table>
         <thead>
