@@ -1,17 +1,24 @@
 #include <charconv>
+#include <cstdint>
 #include <iostream>
+#include <optional>
 #include <string>
-#include <thread>
 
 #include <glaze/glaze.hpp>
 #include "App.h"
 
+#include "auth.hpp"
+#include "exchange.hpp"
 #include "types.hpp"
 
 using namespace std::chrono_literals;
 
-// API setup
+// API endpoints
 constexpr std::string STATE_URL = "/api/state";
+constexpr std::string REGISTER_URL = "/api/register";
+constexpr std::string SIGN_IN_URL = "/api/sign_in";
+constexpr std::string LEADERBOARD_URL = "/api/leaderboard";
+
 constexpr int PORT = 3000;
 
 // per-socket information, if we need it
@@ -21,34 +28,130 @@ struct SocketData {};
 constexpr std::string DEFAULT_TOPIC = "default";
 
 constexpr int IDLE_TIMEOUT = 10;
+const std::string JSON_ENCODE_ERROR = R"({"error": "Error encoding JSON."})";
 
-void get_state(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
-  user_t user_id{0};
-  auto user_str = req->getQuery("user");
-  auto parse_result = std::from_chars(
-      user_str.data(), user_str.data() + user_str.size(), user_id);
-  if (parse_result.ec == std::errc::invalid_argument) {
-    std::cout << "invalid\n";
-  } else {
-    std::cout << static_cast<int>(user_id) << '\n';
-  }
+exchange_t exchange;
 
-  std::cout << "Iterate through headers:\n";
-  for (auto iter = req->begin(); iter != req->end(); ++iter) {
-    std::cout << iter.ptr->key << ": " << iter.ptr->value << "\n";
-  }
-  // send a response
-  res->write("Hello, world!\n");
-  // close the request
-  res->end();
+void send_response(uWS::HttpResponse<true>* res, const auto& response) {
+  res->end(glz::write_json(response).value_or(JSON_ENCODE_ERROR));
 }
 
-// us_listen_socket_t* socket = nullptr;
+void get_state(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
+  user_t user{0};
+  auto user_str = req->getHeader("user");
+  if (user_str.empty()) {
+    send_response(res, state_response_t{
+                           .error = "Must include user header",
+                           .user_entry = std::nullopt,
+                           .bids = std::nullopt,
+                           .asks = std::nullopt,
+                       });
+    return;
+  }
+  auto parse_result =
+      std::from_chars(user_str.data(), user_str.data() + user_str.size(), user);
+  if (parse_result.ec == std::errc::invalid_argument) {
+    send_response(res, state_response_t{
+                           .error = "User id parse error: " +
+                                    std::string(parse_result.ptr),
+                           .user_entry = std::nullopt,
+                           .bids = std::nullopt,
+                           .asks = std::nullopt,
+                       });
+    return;
+  }
+  send_response(res, exchange.get_state(user));
+}
+
+void get_leaderboard(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
+  send_response(res, exchange.get_leaderboard());
+}
+
+void handle_register(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
+  auto username = std::string(req->getHeader("username"));
+  auto info = auth::handle_register(username, exchange);
+  if (info.has_value()) {
+    send_response(res, register_response_t{.error = std::nullopt,
+                                           .id = info->first,
+                                           .secret = info->second});
+  } else {
+    send_response(
+        res, register_response_t{.error = "User with username \"" + username +
+                                          "\" already exists.",
+                                 .id = std::nullopt,
+                                 .secret = std::nullopt});
+  }
+}
+
+void handle_sign_in(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
+  auto username = std::string(req->getHeader("username"));
+  auto secret_str = req->getHeader("secret");
+  uint32_t secret{};
+  auto parse_result = std::from_chars(
+      secret_str.data(), secret_str.data() + secret_str.size(), secret);
+  if (parse_result.ec == std::errc::invalid_argument) {
+    send_response(res,
+                  register_response_t{.error = "Secret parse error: " +
+                                               std::string(parse_result.ptr),
+                                      .id = std::nullopt,
+                                      .secret = std::nullopt});
+    return;
+  }
+  auto id = auth::sign_in(username, secret);
+  if (id.has_value()) {
+    send_response(res,
+                  register_response_t{
+                      .error = std::nullopt, .id = id, .secret = std::nullopt});
+  } else {
+    send_response(res, register_response_t{.error = "Error signing in",
+                                           .id = std::nullopt,
+                                           .secret = std::nullopt});
+  }
+}
+
+outgoing_message_t handle_message(std::string_view message) {
+  incoming_message_t incoming;
+  auto ec = glz::read_json(incoming, message);
+  outgoing_message_t response;
+  if (ec) {
+    response.error = std::string(ec.custom_error_message);
+    return response;
+  }
+  switch (incoming.type) {
+    case ORDER:
+      if (!incoming.order.has_value()) {
+        response.error = "Must provide order field";
+        break;
+      }
+      response.order_result = exchange.place_order(incoming.order.value());
+      if (response.order_result->error.has_value()) {
+        response.error = response.order_result->error;
+      }
+      break;
+    case CANCEL:
+      if (!incoming.cancel.has_value()) {
+        response.error = "Must provide cancel field";
+        break;
+      }
+      response.cancelled =
+          exchange.cancel_order(incoming.cancel->asset, incoming.cancel->side,
+                                incoming.cancel->order_id);
+      if (!response.cancelled.has_value()) {
+        response.error = "Order not found";
+      }
+      break;
+  }
+  return response;
+}
+
 us_listen_socket_t* api_socket = nullptr;
 
 void run_api() {
   uWS::SSLApp app = uWS::SSLApp();
   app.get(STATE_URL, get_state);
+  app.get(LEADERBOARD_URL, get_leaderboard);
+  app.post(REGISTER_URL, handle_register);
+  app.post(SIGN_IN_URL, handle_sign_in);
   app.listen(PORT, [](us_listen_socket_t* listen_socket) {
     if (listen_socket) {
       api_socket = listen_socket;
@@ -56,50 +159,31 @@ void run_api() {
     }
   });
   app.ws<SocketData>(
-      "/ws/broadcast",
+      "/ws",
       {
           .idleTimeout = IDLE_TIMEOUT,
           .open =
               [](uWS::WebSocket<true, true, SocketData>* ws) {
-                // subscribe all incoming connections to default topic
-                // (i.e., broadcast group)
                 ws->subscribe(DEFAULT_TOPIC);
               },
           .message =
               [&app](uWS::WebSocket<true, true, SocketData>* ws,
                      std::string_view message, uWS::OpCode op_code) {
-                // send this websocket a message back
-                ws->send("hello there\n");
-                std::this_thread::sleep_for(2000ms);
-                // publish message to all connections
-                app.publish(DEFAULT_TOPIC, message, op_code);
+                outgoing_message_t outgoing = handle_message(message);
+                if (outgoing.error.has_value()) {
+                  ws->send(
+                      glz::write_json(outgoing).value_or(JSON_ENCODE_ERROR));
+                } else {
+                  app.publish(
+                      DEFAULT_TOPIC,
+                      glz::write_json(outgoing).value_or(JSON_ENCODE_ERROR),
+                      op_code);
+                }
               },
       });
   app.run();
 }
 
 int main() {
-  std::thread api_thread(run_api);
-
-  std::cout << "Type \"quit\" to quit: \n";
-  std::string input;
-  while (std::cin >> input && input != "quit") {}
-
-  // close the socket when we want to shut down the server, allowing us to join
-  if (api_socket != nullptr) {
-    us_listen_socket_close(0, api_socket);
-  }
-  api_thread.join();
-
-  // some JSON serialization/deserialization
-  std::string json_str =
-      R"({"id": 0, "price": 10, "volume": 1, "user": 0, "asset": 6, "side": 0})";
-  order_t order{};
-  auto ec = glz::read_json(order, json_str);
-  if (ec) {
-    // handle error
-    std::cout << ec.custom_error_message << '\n';
-  } else {
-    std::cout << glz::write_json(order).value_or("Error encoding JSON") << '\n';
-  }
+  run_api();
 }

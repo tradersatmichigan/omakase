@@ -5,10 +5,21 @@
 #include <cassert>
 #include <cstdint>
 #include <optional>
+#include <random>
+#include <unordered_map>
 #include <vector>
 
 #include "heap.hpp"
 #include "types.hpp"
+
+namespace auth {
+static std::unordered_map<user_t, std::string> usernames;
+static std::unordered_map<std::string, user_t> user_ids;
+static std::unordered_map<std::string, uint32_t> user_secrets;
+
+static std::default_random_engine re;
+static std::uniform_int_distribution<uint32_t> dist;
+}  // namespace auth
 
 struct exchange_t {
   user_t num_users = 0;
@@ -18,7 +29,69 @@ struct exchange_t {
   std::array<std::vector<order_t>, NUM_ASSETS> bids = {};
   std::array<std::vector<order_t>, NUM_ASSETS> asks = {};
 
-  bool verify_state() {
+  [[nodiscard]] price_t get_portfolio_value(user_t user) const {
+    if (user >= num_users) {
+      return 0;
+    }
+    auto user_entry = user_entries[user];
+    price_t value = user_entry.cash_held;
+    volume_t plate_2_count = user_entry.amount_held[*std::ranges::min_element(
+        PLATE_2, [&user_entry](asset_t lhs, asset_t rhs) {
+          return user_entry.amount_held[lhs] < user_entry.amount_held[rhs];
+        })];
+    std::ranges::for_each(PLATE_2, [&user_entry, plate_2_count](asset_t asset) {
+      user_entry.amount_held[asset] -= plate_2_count;
+    });
+    volume_t plate_1_count = user_entry.amount_held[*std::ranges::min_element(
+        PLATE_1, [&user_entry](asset_t lhs, asset_t rhs) {
+          return user_entry.amount_held[lhs] < user_entry.amount_held[rhs];
+        })];
+    std::ranges::for_each(PLATE_1, [&user_entry, plate_1_count](asset_t asset) {
+      user_entry.amount_held[asset] -= plate_1_count;
+    });
+    std::ranges::for_each(ASSETS, [&user_entry, &value](asset_t asset) {
+      value += ASSET_VALUES[asset] * user_entry.amount_held[asset];
+    });
+    value += PLATE_1_VALUE * plate_1_count;
+    value += PLATE_2_VALUE * plate_2_count;
+    return value;
+  }
+
+  [[nodiscard]] std::vector<leaderboard_entry> get_leaderboard() const {
+    std::vector<leaderboard_entry> res;
+    res.reserve(num_users);
+    for (user_t user = 0; user < num_users; ++user) {
+      res.emplace_back(user, 0, auth::usernames[user],
+                       get_portfolio_value(user));
+    }
+    std::ranges::sort(
+        res, [](const leaderboard_entry& lhs, const leaderboard_entry& rhs) {
+          return lhs.value < rhs.value;
+        });
+    for (uint32_t rank = 1; rank <= num_users; ++rank) {
+      res[rank - 1].rank = rank;
+    }
+    return res;
+  }
+
+  [[nodiscard]] state_response_t get_state(user_t user) const {
+    if (user >= num_users) {
+      return {
+          .error = "Invalid user id: " + std::to_string(user),
+          .user_entry = std::nullopt,
+          .bids = std::nullopt,
+          .asks = std::nullopt,
+      };
+    }
+    return {
+        .error = std::nullopt,
+        .user_entry = user_entries[user],
+        .bids = bids,
+        .asks = asks,
+    };
+  }
+
+  void verify_state() const {
     for (user_t user = 0; user < num_users; ++user) {
       auto& user_entry = user_entries[user];
       price_t expected_buying_power = user_entry.cash_held;
@@ -45,7 +118,6 @@ struct exchange_t {
         assert(expected_selling_power == user_entry.selling_power[asset]);
       }
     }
-    return true;
   }
 
   [[nodiscard]] user_t register_user(
@@ -69,7 +141,7 @@ struct exchange_t {
   }
 
   [[nodiscard]] std::optional<std::string_view> validate_order(
-      const order_t& order) {
+      const order_t& order) const {
     if (order.user >= num_users) {
       return "Invalid user.";
     }
@@ -108,7 +180,7 @@ struct exchange_t {
     push(orders, order);
   }
 
-  [[nodiscard]] OrderResult match_order(order_t& order) {
+  [[nodiscard]] order_result_t match_order(order_t& order) {
     auto& opposing_orders = (order.side == BID ? asks : bids)[order.asset];
     auto is_match = [&order](const order_t& other) {
       return order.side == BID ? order.price >= other.price
@@ -165,13 +237,13 @@ struct exchange_t {
     }
   }
 
-  [[nodiscard]] OrderResult place_order(order_t& order) {
+  [[nodiscard]] order_result_t place_order(order_t& order) {
     std::optional<std::string_view> err = validate_order(order);
     if (err.has_value()) {
       return {.error = err, .trades = {}, .unmatched = {}};
     }
     order.id = order_id++;
-    OrderResult result{};
+    order_result_t result{};
     {
       result = match_order(order);
       if (result.unmatched.has_value()) {

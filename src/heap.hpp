@@ -73,7 +73,7 @@ std::optional<order_t> remove(std::vector<order_t>& orders, order_id_t order_id,
     orders.pop_back();
     return res;
   }
-  size_t i = iter - orders.begin();
+  size_t i = static_cast<size_t>(iter - orders.begin());
   auto to_swap = orders.back();
   std::swap(orders[i], orders[orders.size() - 1]);
   auto removed = orders.back();
