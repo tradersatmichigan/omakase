@@ -31,8 +31,6 @@ const std::string JSON_ENCODE_ERROR = R"({"error": "Error encoding JSON."})";
 exchange_t exchange;
 
 void send_response(uWS::HttpResponse<true>* res, const auto& response) {
-  res->writeHeader("Access-Control-Allow-Origin", "http://localhost:8000")
-      ->writeHeader("Content-Type", "application/json");
   res->end(glz::write_json(response).value_or(JSON_ENCODE_ERROR));
 }
 
@@ -149,15 +147,6 @@ us_listen_socket_t* api_socket = nullptr;
 
 void run_api() {
   uWS::SSLApp app = uWS::SSLApp();
-  // app.options(
-  //     "/*", [](uWS::HttpResponse<true>* res, uWS::HttpRequest* /* req */) {
-  //       res->writeHeader("Access-Control-Allow-Origin", "http://localhost:8000")
-  //           ->writeHeader("Access-Control-Allow-Methods",
-  //                         "GET, POST, PUT, DELETE, OPTIONS")
-  //           ->writeHeader("Access-Control-Allow-Headers",
-  //                         "Content-Type, Authorization")
-  //           ->end();
-  //     });
   app.get(STATE_URL, get_state);
   app.get(LEADERBOARD_URL, get_leaderboard);
   app.post(REGISTER_URL, handle_register);
