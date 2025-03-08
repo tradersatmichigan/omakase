@@ -1,18 +1,41 @@
-import React, { useState } from "react";
-import { asset_t, side_t } from "./types";
+import React, { useContext, useState } from "react";
+import { asset_t, message_t, outgoing_message_t, side_t } from "./types";
+import { SocketContext, UserInfoContext } from "./Game";
 
 const OrderForm = ({ asset }: { asset: asset_t }) => {
   const [price, setPrice] = useState<number>();
   const [volume, setVolume] = useState<number>();
   const [side, setSide] = useState<side_t>(side_t.BID);
+  const ws = useContext(SocketContext);
+  const { userInfo } = useContext(UserInfoContext);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const send_order_message = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Submitted values:", { asset, price, volume, side });
+    if (
+      ws?.current === undefined ||
+      userInfo === undefined ||
+      price === undefined ||
+      volume === undefined
+    ) {
+      return;
+    }
+    const message: outgoing_message_t = {
+      type: message_t.ORDER,
+      order: {
+        id: 0,
+        price: price,
+        volume: volume,
+        user: userInfo.user_id,
+        asset: asset,
+        side: side,
+      },
+      cancel: undefined,
+    };
+    ws?.current?.send(JSON.stringify(message));
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={send_order_message}>
       <div>
         <label>
           <input

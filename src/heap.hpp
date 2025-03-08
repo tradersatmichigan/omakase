@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cassert>
-#include <iostream>
 #include <vector>
 
 #include "types.hpp"
@@ -79,7 +78,6 @@ std::optional<order_t> remove(std::vector<order_t>& orders, order_id_t order_id,
   auto removed = orders.back();
   orders.pop_back();
   if (cmp(side)(removed, to_swap)) {
-    std::cout << "swimming up\n";
     swim_up(orders, side, i);
   } else {
     swim_down(orders, side, i);

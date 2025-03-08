@@ -1,14 +1,33 @@
-import React from "react";
+import React, { useContext, useEffect, useState } from "react";
+import { leaderboard_entry_t } from "./types";
+import { UserInfoContext } from "./Game";
 
 const Leaderboard = () => {
-  const leaderboard = [
-    { rank: 1, name: "Ronner Cose", value: 10000 },
-    { rank: 2, name: "Giv Shovil", value: 90000 },
-    { rank: 3, name: "Rarjun Astogi", value: 80000 },
-    { rank: 4, name: "Pobby Balmer", value: 70000 },
-  ];
+  const { userInfo } = useContext(UserInfoContext);
+  const [leaderbaord, setLeaderboard] = useState<leaderboard_entry_t[]>();
 
-  return (
+  const fetch_leaderboard = () => {
+    fetch("http://localhost:3000/api/leaderboard")
+      .then((response) => {
+        if (!response.ok) throw Error(response.statusText);
+        return response.json() as Promise<leaderboard_entry_t[]>;
+      })
+      .then((data) => {
+        setLeaderboard(data);
+      })
+      .catch((error) => {
+        console.error(error);
+        fetch_leaderboard();
+      });
+  };
+
+  useEffect(() => {
+    fetch_leaderboard();
+    const interval_id = setInterval(fetch_leaderboard, 10000);
+    return () => clearInterval(interval_id);
+  }, []);
+
+  return leaderbaord !== undefined ? (
     <div className="grid-item table-container">
       <h3>Leaderboard</h3>
       <table>
@@ -25,16 +44,21 @@ const Leaderboard = () => {
           </tr>
         </thead>
         <tbody>
-          {leaderboard.map((user) => (
-            <tr key={user.rank}>
+          {leaderbaord.map((user) => (
+            <tr
+              key={user.id}
+              className={user.id === userInfo?.user_id ? "user-row" : undefined}
+            >
               <td>{user.rank}</td>
-              <td>{user.name}</td>
+              <td>{user.username}</td>
               <td>${user.value}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  ) : (
+    <div>Loading...</div>
   );
 };
 

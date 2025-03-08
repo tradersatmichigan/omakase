@@ -3,11 +3,12 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
 static constexpr int NUM_ASSETS = 6;
-static constexpr int MAX_USERS = 100;
+static constexpr int MAX_USERS = 150;
 
 using user_t = uint8_t;
 using order_id_t = uint32_t;
@@ -27,6 +28,9 @@ static constexpr std::array<asset_t, NUM_ASSETS> ASSETS = {
     CALIFORNIA_ROLL, SPICY_TUNA_ROLL,    SALMON_NIGIRI,
     EEL_NIGIRI,      WHITE_TUNA_SASHIMI, UNI_NIGIRI,
 };
+
+static constexpr std::array<std::string, NUM_ASSETS> SYMBOLS = {
+    "CALI", "SPCYT", "SALM", "EEL", "WTUNA", "UNI"};
 
 static constexpr std::array<asset_t, 4> PLATE_1 = {
     CALIFORNIA_ROLL,
@@ -95,7 +99,7 @@ struct cancel_t {
 };
 
 struct order_result_t {
-  std::optional<std::string_view> error;
+  std::optional<std::string> error;
   std::vector<trade_t> trades;
   std::optional<order_t> unmatched;
 };
@@ -105,6 +109,12 @@ struct user_entry_t {
   price_t buying_power;
   std::array<volume_t, NUM_ASSETS> amount_held;
   std::array<volume_t, NUM_ASSETS> selling_power;
+};
+
+struct state_t {
+  user_entry_t user_entry{};
+  std::array<std::vector<order_t>, NUM_ASSETS> bids;
+  std::array<std::vector<order_t>, NUM_ASSETS> asks;
 };
 
 struct register_response_t {

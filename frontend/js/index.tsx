@@ -3,4 +3,8 @@ import React from "react";
 import Game from "./Game";
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
-root.render(<Game />);
+root.render(
+  <React.StrictMode>
+    <Game />
+  </React.StrictMode>,
+);

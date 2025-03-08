@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <iostream>
 #include <optional>
 #include <random>
 #include <unordered_map>
@@ -34,7 +35,6 @@ struct exchange_t {
       return 0;
     }
     auto user_entry = user_entries[user];
-    price_t value = user_entry.cash_held;
     volume_t plate_2_count = user_entry.amount_held[*std::ranges::min_element(
         PLATE_2, [&user_entry](asset_t lhs, asset_t rhs) {
           return user_entry.amount_held[lhs] < user_entry.amount_held[rhs];
@@ -49,9 +49,14 @@ struct exchange_t {
     std::ranges::for_each(PLATE_1, [&user_entry, plate_1_count](asset_t asset) {
       user_entry.amount_held[asset] -= plate_1_count;
     });
+    price_t value = user_entry.cash_held;
     std::ranges::for_each(ASSETS, [&user_entry, &value](asset_t asset) {
       value += ASSET_VALUES[asset] * user_entry.amount_held[asset];
     });
+    if (plate_1_count > 0 || plate_2_count > 0) {
+      std::cout << "plate_1_count: " << plate_1_count
+                << "plate_2_count: " << plate_2_count << '\n';
+    }
     value += PLATE_1_VALUE * plate_1_count;
     value += PLATE_2_VALUE * plate_2_count;
     return value;
@@ -66,7 +71,7 @@ struct exchange_t {
     }
     std::ranges::sort(
         res, [](const leaderboard_entry& lhs, const leaderboard_entry& rhs) {
-          return lhs.value < rhs.value;
+          return lhs.value > rhs.value;
         });
     for (uint32_t rank = 1; rank <= num_users; ++rank) {
       res[rank - 1].rank = rank;
@@ -140,7 +145,7 @@ struct exchange_t {
     return num_users++;
   }
 
-  [[nodiscard]] std::optional<std::string_view> validate_order(
+  [[nodiscard]] std::optional<std::string> validate_order(
       const order_t& order) const {
     if (order.user >= num_users) {
       return "Invalid user.";
@@ -160,7 +165,7 @@ struct exchange_t {
         break;
       case ASK:
         if (order.volume > user_entry.selling_power[order.asset]) {
-          return "Insufficient selling power.";
+          return "Insufficient selling power for asset " + SYMBOLS[order.asset];
         }
         break;
     }
@@ -238,7 +243,7 @@ struct exchange_t {
   }
 
   [[nodiscard]] order_result_t place_order(order_t& order) {
-    std::optional<std::string_view> err = validate_order(order);
+    std::optional<std::string> err = validate_order(order);
     if (err.has_value()) {
       return {.error = err, .trades = {}, .unmatched = {}};
     }

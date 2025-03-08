@@ -1,15 +1,32 @@
-import React from "react";
-import { assets, symbols, user_entry_t } from "./types";
+import React, { useContext } from "react";
+import { ASSETS, PLATE_1, PLATE_2, SYMBOLS, user_entry_t } from "./types";
+import { StateContext } from "./Game";
 
 const Portfolio = () => {
-  const user_entry: user_entry_t = {
-    cash_held: 1000,
-    buying_power: 900,
-    amount_held: [1000, 200, 200, 0, 0, 10],
-    selling_power: [900, 100, 100, 0, 0, 5],
+  const state = useContext(StateContext);
+
+  const get_plate_counts = () => {
+    if (state?.user_entry === undefined) {
+      return [0, 0];
+    }
+    const user_entry = JSON.parse(
+      JSON.stringify(state.user_entry),
+    ) as user_entry_t;
+    const plate_2_count = Math.min(
+      ...PLATE_2.map((asset) => user_entry.amount_held[asset]),
+    );
+    PLATE_2.forEach(
+      (asset) => (user_entry.amount_held[asset] -= plate_2_count),
+    );
+    const plate_1_count = Math.min(
+      ...PLATE_1.map((asset) => user_entry.amount_held[asset]),
+    );
+    return [plate_1_count, plate_2_count];
   };
 
-  return (
+  const [plate_1_count, plate_2_count] = get_plate_counts();
+
+  return state !== undefined ? (
     <div className="grid-item table-container">
       <h3>Portfolio</h3>
       <table>
@@ -23,29 +40,31 @@ const Portfolio = () => {
         <tbody>
           <tr key="cash">
             <td>Cash</td>
-            <td>${user_entry.cash_held}</td>
-            <td>${user_entry.buying_power}</td>
+            <td>${state.user_entry.cash_held}</td>
+            <td>${state.user_entry.buying_power}</td>
           </tr>
-          {assets.map((asset) => (
+          {ASSETS.map((asset) => (
             <tr key={asset}>
-              <td>{symbols[asset]}</td>
-              <td>{user_entry.amount_held[asset]}</td>
-              <td>{user_entry.selling_power[asset]}</td>
+              <td>{SYMBOLS[asset]}</td>
+              <td>{state.user_entry.amount_held[asset]}</td>
+              <td>{state.user_entry.selling_power[asset]}</td>
             </tr>
           ))}
           <tr key="plate-1">
             <td>Plate 1</td>
-            <td>0</td>
+            <td>{plate_1_count}</td>
             <td></td>
           </tr>
           <tr key="plate-2">
             <td>Plate 2</td>
-            <td>0</td>
+            <td>{plate_2_count}</td>
             <td></td>
           </tr>
         </tbody>
       </table>
     </div>
+  ) : (
+    <div>Loading...</div>
   );
 };
 

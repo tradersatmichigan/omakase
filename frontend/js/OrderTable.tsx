@@ -1,24 +1,17 @@
-import React from "react";
+import React, { useContext } from "react";
 import { asset_t, side_t } from "./types";
+import { StateContext } from "./Game";
 
 const OrderTable = ({ asset, side }: { asset: asset_t; side: side_t }) => {
-  const orders = [
-    { price: 13, volume: 4 },
-    { price: 10, volume: 1 },
-    { price: 11, volume: 2 },
-    { price: 12, volume: 3 },
-    { price: 13, volume: 4 },
-    { price: 14, volume: 4 },
-    { price: 15, volume: 4 },
-    { price: 16, volume: 4 },
-    { price: 17, volume: 4 },
-    { price: 18, volume: 4 },
-    { price: 19, volume: 4 },
-    { price: 20, volume: 4 },
-    { price: 21, volume: 4 },
-    { price: 22, volume: 4 },
-    { price: 23, volume: 4 },
-  ];
+  const state = useContext(StateContext);
+
+  if (state == undefined) {
+    return <div>Loading...</div>;
+  }
+
+  const orders = Object.values(state.orders).filter(
+    (order) => order.side === side && order.asset === asset,
+  );
 
   return (
     <div className="asset-item table-container">

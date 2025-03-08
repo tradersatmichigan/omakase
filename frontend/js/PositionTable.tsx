@@ -1,18 +1,38 @@
-import React from "react";
-import { side_t, asset_t, symbols } from "./types";
+import React, { useContext } from "react";
+import {
+  message_t,
+  order_t,
+  outgoing_message_t,
+  side_t,
+  SYMBOLS,
+} from "./types";
+import { SocketContext, StateContext, UserInfoContext } from "./Game";
 
 const PositionTable = ({ side }: { side: side_t }) => {
-  const orders = [
-    { id: 1, asset: asset_t.CALIFORNIA_ROLL, price: 13, volume: 1 },
-    { id: 2, asset: asset_t.EEL_NIGIRI, price: 13, volume: 2 },
-    { id: 3, asset: asset_t.UNI_NIGIRI, price: 13, volume: 3 },
-    { id: 4, asset: asset_t.CALIFORNIA_ROLL, price: 13, volume: 4 },
-    { id: 5, asset: asset_t.WHITE_TUNA_SASHIMI, price: 13, volume: 5 },
-    { id: 6, asset: asset_t.SALMON_NIGIRI, price: 13, volume: 6 },
-    { id: 7, asset: asset_t.SALMON_NIGIRI, price: 13, volume: 6 },
-    { id: 8, asset: asset_t.SALMON_NIGIRI, price: 13, volume: 6 },
-    { id: 9, asset: asset_t.SALMON_NIGIRI, price: 13, volume: 6 },
-  ];
+  const state = useContext(StateContext);
+  const { userInfo } = useContext(UserInfoContext);
+  const ws = useContext(SocketContext);
+
+  if (state === undefined || userInfo === undefined) {
+    return <div>Loading...</div>;
+  }
+
+  const orders = Object.values(state.orders)
+    .filter((order) => order.side === side && order.user === userInfo.user_id)
+    .sort((lhs, rhs) => rhs.id - lhs.id);
+
+  const send_cancel_message = (order: order_t) => {
+    const message: outgoing_message_t = {
+      type: message_t.CANCEL,
+      order: undefined,
+      cancel: {
+        order_id: order.id,
+        asset: order.asset,
+        side: order.side,
+      },
+    };
+    ws?.current?.send(JSON.stringify(message));
+  };
 
   return (
     <div className="position-item table-container">
@@ -39,20 +59,23 @@ const PositionTable = ({ side }: { side: side_t }) => {
               <tr key={order.id}>
                 <td>
                   <button
-                    onClick={(e) => console.log("clicked")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      send_cancel_message(order);
+                    }}
                     className="cancel"
                   >
                     ×
                   </button>
                 </td>
-                <td>{symbols[order.asset]}</td>
+                <td>{SYMBOLS[order.asset]}</td>
                 <td>${order.price}</td>
                 <td>{order.volume}</td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan={2}>No {side === side_t.BID ? "bids" : "asks"}</td>
+              <td colSpan={4}>No {side === side_t.BID ? "bids" : "asks"}</td>
             </tr>
           )}
         </tbody>

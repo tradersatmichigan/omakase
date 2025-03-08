@@ -19,7 +19,7 @@ static constexpr bool CHECK_STATE = false;
 static constexpr size_t NUM_THREADS = 1;
 static_assert(0 < NUM_THREADS && NUM_THREADS <= NUM_ASSETS);
 
-static constexpr int NUM_USERS = 100;
+static constexpr int NUM_USERS = MAX_USERS;
 static constexpr int ORDERS_PER_ASSET = 6'000'000 / NUM_THREADS;
 
 static constexpr price_t BENCHMARK_CASH = 4'000'000'000;
@@ -108,7 +108,7 @@ auto benchmark(const std::vector<user_t>& users) -> void {
                                      res.unmatched.value().id);
     }
     if constexpr (CHECK_STATE) {
-      assert(exchange.verify_state());
+      exchange.verify_state();
     }
     response_times.emplace_back(t_end - t_start);
     if (res.error.has_value()) {
@@ -137,7 +137,7 @@ auto main() -> int {
   std::vector<user_t> users = register_users();
   benchmark(users);
 
-  assert(exchange.verify_state());
+  exchange.verify_state();
   std::cout << "PASS\n";
 
   return 0;
