@@ -49,7 +49,7 @@ const Game = () => {
     }
 
     fetch(
-      `http://localhost:3000/api/sign_in?username=${username}&secret=${secret}`,
+      `api/sign_in?username=${username}&secret=${secret}`,
       {
         method: "POST",
       },
@@ -75,7 +75,7 @@ const Game = () => {
     }
 
     const fetch_state = () => {
-      fetch(`http://localhost:3000/api/state?user=${userInfo.user_id}`)
+      fetch(`/api/state?user=${userInfo.user_id}`)
         .then((response) => {
           if (!response.ok) throw Error(response.statusText);
           return response.json() as Promise<state_response_t>;
@@ -253,7 +253,7 @@ const Game = () => {
       if (ws.current !== undefined) {
         return;
       }
-      const wsUrl = "ws://localhost:3000/ws";
+      const wsUrl = `ws://${window.location.host}/ws`;
       ws.current = new WebSocket(wsUrl);
       ws.current.onclose = (e) => {
         console.info("WebSocket closed. Reconnecting...");

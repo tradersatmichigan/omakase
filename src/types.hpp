@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <vector>
 
 static constexpr int NUM_ASSETS = 6;
@@ -29,7 +28,7 @@ static constexpr std::array<asset_t, NUM_ASSETS> ASSETS = {
     EEL_NIGIRI,      WHITE_TUNA_SASHIMI, UNI_NIGIRI,
 };
 
-static constexpr std::array<std::string, NUM_ASSETS> SYMBOLS = {
+static const std::array<std::string, NUM_ASSETS> SYMBOLS = {
     "CALI", "SPCYT", "SALM", "EEL", "WTUNA", "UNI"};
 
 static constexpr std::array<asset_t, 4> PLATE_1 = {
@@ -137,7 +136,7 @@ enum message_t : uint8_t {
 
 struct incoming_message_t {
   // ORDER or CANCEL
-  message_t type;
+  message_t type{};
   // ORDER
   std::optional<order_t> order;
   std::optional<cancel_t> cancel;

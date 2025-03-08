@@ -7,7 +7,7 @@ const Leaderboard = () => {
   const [leaderbaord, setLeaderboard] = useState<leaderboard_entry_t[]>();
 
   const fetch_leaderboard = () => {
-    fetch("http://localhost:3000/api/leaderboard")
+    fetch("/api/leaderboard")
       .then((response) => {
         if (!response.ok) throw Error(response.statusText);
         return response.json() as Promise<leaderboard_entry_t[]>;

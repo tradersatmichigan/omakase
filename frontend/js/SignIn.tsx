@@ -15,7 +15,7 @@ const SignIn = () => {
     ) {
       return;
     }
-    fetch(`http://localhost:3000/api/register?username=${username}`, {
+    fetch(`/api/register?username=${username}`, {
       method: "POST",
     })
       .then((response) => {

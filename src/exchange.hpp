@@ -106,7 +106,7 @@ struct exchange_t {
             expected_buying_power -= order.price * order.volume;
           }
         }
-        assert(std::ranges::is_heap(heap, cmp(BID)));
+        assert(std::ranges::is_heap(heap, heap::CMP(BID)));
       }
       assert(expected_buying_power == user_entry.buying_power);
 
@@ -119,7 +119,7 @@ struct exchange_t {
           }
         }
 
-        assert(std::ranges::is_heap(asks[asset], cmp(ASK)));
+        assert(std::ranges::is_heap(asks[asset], heap::CMP(ASK)));
         assert(expected_selling_power == user_entry.selling_power[asset]);
       }
     }
@@ -182,7 +182,7 @@ struct exchange_t {
         break;
     }
     auto& orders = (order.side == BID ? bids : asks)[order.asset];
-    push(orders, order);
+    heap::push(orders, order);
   }
 
   [[nodiscard]] order_result_t match_order(order_t& order) {
@@ -203,7 +203,7 @@ struct exchange_t {
                           order.side == BID ? other.user : order.user,
                           order.asset);
       if (other.volume == 0) {
-        pop(opposing_orders, other.side);
+        heap::pop(opposing_orders, other.side);
       }
     }
     if (order.volume > 0) {
@@ -263,7 +263,8 @@ struct exchange_t {
 
   [[nodiscard]] std::optional<order_t> cancel_order(asset_t asset, side_t side,
                                                     order_id_t order_id) {
-    auto order = remove((side == BID ? bids : asks)[asset], order_id, side);
+    auto order =
+        heap::remove((side == BID ? bids : asks)[asset], order_id, side);
     if (!order.has_value()) {
       return std::nullopt;
     }

@@ -4,26 +4,28 @@
 
 #include "types.hpp"
 
-constexpr auto cmp = [](side_t side) {
+namespace heap {
+static constexpr auto CMP = [](side_t side) {
   return [side](const order_t& lhs, const order_t& rhs) {
     return (side == BID ? lhs.price < rhs.price : lhs.price > rhs.price) ||
            (lhs.price == rhs.price && lhs.id > rhs.id);
   };
 };
 
-void pop(std::vector<order_t>& orders, side_t side) {
-  std::ranges::pop_heap(orders, cmp(side));
+// NOLINTBEGIN (unused-function)
+static void pop(std::vector<order_t>& orders, side_t side) {
+  std::ranges::pop_heap(orders, CMP(side));
   orders.pop_back();
 }
 
-void push(std::vector<order_t>& orders, const order_t& order) {
+static void push(std::vector<order_t>& orders, const order_t& order) {
   orders.push_back(order);
-  std::ranges::push_heap(orders, cmp(order.side));
+  std::ranges::push_heap(orders, CMP(order.side));
 }
 
-void swim_up(std::vector<order_t>& orders, side_t side, size_t i) {
+static void swim_up(std::vector<order_t>& orders, side_t side, size_t i) {
   while (i > 0) {
-    if (cmp(side)(orders[(i - 1) / 2], orders[i])) {
+    if (CMP(side)(orders[(i - 1) / 2], orders[i])) {
       std::swap(orders[(i - 1) / 2], orders[i]);
       i = (i - 1) / 2;
     } else {
@@ -32,7 +34,7 @@ void swim_up(std::vector<order_t>& orders, side_t side, size_t i) {
   }
 }
 
-void swim_down(std::vector<order_t>& orders, side_t side, size_t i) {
+static void swim_down(std::vector<order_t>& orders, side_t side, size_t i) {
   while (i < orders.size()) {
     size_t l = (2 * i) + 1;
     size_t r = l + 1;
@@ -45,9 +47,9 @@ void swim_down(std::vector<order_t>& orders, side_t side, size_t i) {
     } else if (r >= orders.size()) {
       j = l;
     } else {
-      j = cmp(side)(orders[l], orders[r]) ? r : l;
+      j = CMP(side)(orders[l], orders[r]) ? r : l;
     }
-    if (cmp(side)(orders[i], orders[j])) {
+    if (CMP(side)(orders[i], orders[j])) {
       std::swap(orders[i], orders[j]);
       i = j;
     } else {
@@ -56,9 +58,9 @@ void swim_down(std::vector<order_t>& orders, side_t side, size_t i) {
   }
 }
 
-std::optional<order_t> remove(std::vector<order_t>& orders, order_id_t order_id,
-                              side_t side) {
-  assert(std::ranges::is_heap(orders, cmp(side)));
+static std::optional<order_t> remove(std::vector<order_t>& orders,
+                                     order_id_t order_id, side_t side) {
+  assert(std::ranges::is_heap(orders, CMP(side)));
   auto iter = std::ranges::find_if(orders, [order_id](const order_t& order) {
     return order.id == order_id;
   });
@@ -77,11 +79,13 @@ std::optional<order_t> remove(std::vector<order_t>& orders, order_id_t order_id,
   std::swap(orders[i], orders[orders.size() - 1]);
   auto removed = orders.back();
   orders.pop_back();
-  if (cmp(side)(removed, to_swap)) {
+  if (CMP(side)(removed, to_swap)) {
     swim_up(orders, side, i);
   } else {
     swim_down(orders, side, i);
   }
-  assert(std::ranges::is_heap(orders, cmp(side)));
+  assert(std::ranges::is_heap(orders, CMP(side)));
   return removed;
 }
+// NOLINTEND (unused-function)
+}  // namespace heap

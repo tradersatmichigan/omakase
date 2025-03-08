@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <glaze/glaze.hpp>
 #include "App.h"
@@ -10,13 +11,11 @@
 #include "exchange.hpp"
 #include "types.hpp"
 
-using namespace std::chrono_literals;
-
 // API endpoints
-constexpr std::string STATE_URL = "/api/state";
-constexpr std::string REGISTER_URL = "/api/register";
-constexpr std::string SIGN_IN_URL = "/api/sign_in";
-constexpr std::string LEADERBOARD_URL = "/api/leaderboard";
+const std::string STATE_URL = "/api/state";
+const std::string REGISTER_URL = "/api/register";
+const std::string SIGN_IN_URL = "/api/sign_in";
+const std::string LEADERBOARD_URL = "/api/leaderboard";
 
 constexpr int PORT = 3000;
 
