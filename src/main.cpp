@@ -149,15 +149,15 @@ us_listen_socket_t* api_socket = nullptr;
 
 void run_api() {
   uWS::SSLApp app = uWS::SSLApp();
-  app.options(
-      "/*", [](uWS::HttpResponse<true>* res, uWS::HttpRequest* /* req */) {
-        res->writeHeader("Access-Control-Allow-Origin", "http://localhost:8000")
-            ->writeHeader("Access-Control-Allow-Methods",
-                          "GET, POST, PUT, DELETE, OPTIONS")
-            ->writeHeader("Access-Control-Allow-Headers",
-                          "Content-Type, Authorization")
-            ->end();
-      });
+  // app.options(
+  //     "/*", [](uWS::HttpResponse<true>* res, uWS::HttpRequest* /* req */) {
+  //       res->writeHeader("Access-Control-Allow-Origin", "http://localhost:8000")
+  //           ->writeHeader("Access-Control-Allow-Methods",
+  //                         "GET, POST, PUT, DELETE, OPTIONS")
+  //           ->writeHeader("Access-Control-Allow-Headers",
+  //                         "Content-Type, Authorization")
+  //           ->end();
+  //     });
   app.get(STATE_URL, get_state);
   app.get(LEADERBOARD_URL, get_leaderboard);
   app.post(REGISTER_URL, handle_register);
