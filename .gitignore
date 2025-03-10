@@ -35,3 +35,4 @@
 uWebSockets
 node_modules
 static/js
+*.log

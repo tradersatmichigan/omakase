@@ -9,6 +9,7 @@
 
 #include "auth.hpp"
 #include "exchange.hpp"
+#include "log.hpp"
 #include "types.hpp"
 
 // API endpoints
@@ -70,6 +71,7 @@ void handle_register(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
   auto username = std::string(req->getQuery("username"));
   auto info = auth::handle_register(username, exchange);
   if (info.has_value()) {
+    log::log_user(username, info->first, info->second);
     send_response(res, register_response_t{.error = std::nullopt,
                                            .id = info->first,
                                            .secret = info->second});
