@@ -10,7 +10,7 @@
 #include "glaze/json/write.hpp"
 #include "types.hpp"
 
-namespace log {
+namespace logging {
 static const std::string USERS_FILENAME = "users.log";
 static const std::string ORDERS_FILENAME = "orders.log";
 //NOLINTBEGIN (cppcoreguidelines-interfaces-global-init)
@@ -41,4 +41,4 @@ static void log_user(const std::string& username, user_t id, uint32_t secret) {
   }
 }
 //NOLINTEND (unused-function)
-};  // namespace log
+};  // namespace logging

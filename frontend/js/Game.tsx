@@ -110,7 +110,6 @@ const Game = () => {
 
   const settle_trades = (state: state_t, trades: trade_t[]) => {
     for (const trade of trades) {
-      setTrades((prevTrades) => [...prevTrades, trade]);
       const matched_order = state.orders[trade.order_id];
       if (matched_order === undefined) {
         console.error(`Order with id ${trade.order_id} not found`);
@@ -157,6 +156,14 @@ const Game = () => {
             break;
         }
       }
+    }
+    if (trades.length > 0) {
+      setTrades((prevTrades) => {
+        if (prevTrades.find((trade) => trade === trades[0]) === undefined) {
+          return [...prevTrades, ...trades];
+        }
+        return prevTrades;
+      });
     }
   };
 
