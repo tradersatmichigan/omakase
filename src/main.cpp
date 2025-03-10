@@ -1,15 +1,18 @@
 #include <charconv>
 #include <cstdint>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include <glaze/glaze.hpp>
+#include <tuple>
 #include "App.h"
 
 #include "auth.hpp"
 #include "exchange.hpp"
-#include "log.hpp"
+#include "glaze/json/read.hpp"
+#include "logging.hpp"
 #include "types.hpp"
 
 // API endpoints
@@ -71,7 +74,7 @@ void handle_register(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
   auto username = std::string(req->getQuery("username"));
   auto info = auth::handle_register(username, exchange);
   if (info.has_value()) {
-    logging::log_user(username, info->first, info->second);
+    logging::log_user(username);
     send_response(res, register_response_t{.error = std::nullopt,
                                            .id = info->first,
                                            .secret = info->second});
@@ -169,6 +172,7 @@ void run_api() {
           .message =
               [&app](uWS::WebSocket<true, true, socket_data>* ws,
                      std::string_view message, uWS::OpCode op_code) {
+                logging::log_message(message);
                 outgoing_message_t outgoing = handle_message(message);
                 if (outgoing.error.has_value()) {
                   ws->send(
@@ -186,5 +190,23 @@ void run_api() {
 }
 
 int main() {
+  // replay users
+  std::ifstream users(logging::USERS_FILENAME);
+  if (users.is_open()) {
+    std::string username;
+    while (getline(users, username)) {
+      auth::handle_register(username, exchange);
+    }
+  }
+
+  // replay messages
+  std::ifstream messages(logging::MESSAGES_FILENAME);
+  if (messages.is_open()) {
+    std::string message;
+    while (getline(messages, message)) {
+      std::ignore = handle_message(message);
+    }
+  }
+
   run_api();
 }

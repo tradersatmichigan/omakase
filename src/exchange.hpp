@@ -18,7 +18,7 @@ static std::unordered_map<user_t, std::string> usernames;
 static std::unordered_map<std::string, user_t> user_ids;
 static std::unordered_map<std::string, uint32_t> user_secrets;
 
-static std::default_random_engine re;
+static std::default_random_engine re(0);
 static std::uniform_int_distribution<uint32_t> dist;
 }  // namespace auth
 

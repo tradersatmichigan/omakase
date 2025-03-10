@@ -15,12 +15,12 @@
 
 exchange_t exchange;
 
-static constexpr bool CHECK_STATE = false;
+static constexpr bool CHECK_STATE = true;
 static constexpr size_t NUM_THREADS = 1;
 static_assert(0 < NUM_THREADS && NUM_THREADS <= NUM_ASSETS);
 
 static constexpr int NUM_USERS = MAX_USERS;
-static constexpr int ORDERS_PER_ASSET = 6'000'000 / NUM_THREADS;
+static constexpr int ORDERS_PER_ASSET = 60'000 / NUM_THREADS;
 
 static constexpr price_t BENCHMARK_CASH = 4'000'000'000;
 static constexpr volume_t BENCHMARK_VOLUME = 100'000'000;
@@ -102,11 +102,14 @@ auto benchmark(const std::vector<user_t>& users) -> void {
     auto t_start = std::chrono::high_resolution_clock::now();
     auto res = exchange.place_order(order);
     auto t_end = std::chrono::high_resolution_clock::now();
-    // std::cout << glz::write_json(res).value_or("Error encoding JSON") << '\n';
     if (res.unmatched.has_value() && cancel_generator(e1) == 1) {
-      auto _ = exchange.cancel_order(order.asset, order.side,
-                                     res.unmatched.value().id);
+      auto cancel_res = exchange.cancel_order(order.asset, order.side,
+                                              res.unmatched.value().id);
+      if (!cancel_res.has_value()) {
+        std::cout << "cancel error\n";
+      }
     }
+    // std::cout << glz::write_json(res).value_or("Error encoding JSON") << '\n';
     if constexpr (CHECK_STATE) {
       exchange.verify_state();
     }
@@ -125,9 +128,10 @@ auto benchmark(const std::vector<user_t>& users) -> void {
   std::cout << "Placing orders took: " << total_time << '\n';
   std::cout << "Average time per order: " << average_response_time << "\n";
   for (double percent = 0.1; percent >= 0.0000001; percent /= 10) {
-    std::cout << percent * 100
-              << "% latency: " << response_times[orders.size() * (1 - percent)]
-              << '\n';
+    std::cout
+        << percent * 100 << "% latency: "
+        << response_times[static_cast<size_t>((1 - percent) * orders.size())]
+        << '\n';
   }
 }
 

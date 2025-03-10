@@ -48,12 +48,9 @@ const Game = () => {
       return;
     }
 
-    fetch(
-      `api/sign_in?username=${username}&secret=${secret}`,
-      {
-        method: "POST",
-      },
-    )
+    fetch(`api/sign_in?username=${username}&secret=${secret}`, {
+      method: "POST",
+    })
       .then((response) => {
         if (!response.ok) throw Error(response.statusText);
         return response.json() as Promise<register_response_t>;
