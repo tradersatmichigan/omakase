@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-static constexpr int NUM_ASSETS = 6;
+static constexpr int NUM_ASSETS = 4;
 static constexpr int MAX_USERS = 150;
 
 using user_t = uint8_t;
@@ -16,45 +16,37 @@ using volume_t = uint32_t;
 
 enum asset_t : uint8_t {
   CALIFORNIA_ROLL = 0,
-  SPICY_TUNA_ROLL = 1,
-  SALMON_NIGIRI = 2,
-  EEL_NIGIRI = 3,
-  WHITE_TUNA_SASHIMI = 4,
-  UNI_NIGIRI = 5,
+  SALMON_NIGIRI = 1,
+  EEL_NIGIRI = 2,
+  UNI_NIGIRI = 3,
 };
-
 static constexpr std::array<asset_t, NUM_ASSETS> ASSETS = {
-    CALIFORNIA_ROLL, SPICY_TUNA_ROLL,    SALMON_NIGIRI,
-    EEL_NIGIRI,      WHITE_TUNA_SASHIMI, UNI_NIGIRI,
-};
-
-static const std::array<std::string, NUM_ASSETS> SYMBOLS = {
-    "CALI", "SPCYT", "SALM", "EEL", "WTUNA", "UNI"};
-
-static constexpr std::array<asset_t, 4> PLATE_1 = {
     CALIFORNIA_ROLL,
     SALMON_NIGIRI,
-    WHITE_TUNA_SASHIMI,
-    UNI_NIGIRI,
-};
-
-static constexpr std::array<asset_t, 4> PLATE_2 = {
-    SPICY_TUNA_ROLL,
     EEL_NIGIRI,
-    WHITE_TUNA_SASHIMI,
     UNI_NIGIRI,
 };
-
-static constexpr std::array<price_t, NUM_ASSETS> ASSET_VALUES = {
-    100, 100, 200, 200, 300, 400,
+static const std::array<std::string, NUM_ASSETS> SYMBOLS = {
+    "CALI",
+    "SALM",
+    "EEL",
+    "UNI",
 };
-static constexpr price_t PLATE_1_VALUE = 1500;
-static constexpr price_t PLATE_2_VALUE = 2000;
-
+static constexpr std::array<price_t, NUM_ASSETS> ASSET_VALUES = {
+    10,
+    20,
+    30,
+    40,
+};
+static constexpr price_t PLATE_BONUS = 100;
 static constexpr std::array<volume_t, NUM_ASSETS> STARTING_AMOUNTS = {
-    400, 200, 200, 100, 70, 50};
+    400,
+    200,
+    133,
+    100,
+};
 
-static constexpr price_t STARTING_PORTFOLIO_VALUE = 200'000;
+static constexpr price_t STARTING_PORTFOLIO_VALUE = 20'000;
 
 static constexpr std::array<volume_t, NUM_ASSETS> make_starting_cash() {
   std::array<volume_t, NUM_ASSETS> res = {};

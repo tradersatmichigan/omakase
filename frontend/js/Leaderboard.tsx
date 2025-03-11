@@ -28,7 +28,7 @@ const Leaderboard = () => {
   }, []);
 
   return leaderbaord !== undefined ? (
-    <div className="grid-item table-container">
+    <div className="grid-item table-container leaderboard-container">
       <h3>Leaderboard</h3>
       <table>
         <colgroup>

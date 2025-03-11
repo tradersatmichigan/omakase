@@ -70,6 +70,7 @@ const OrderForm = ({ asset }: { asset: asset_t }) => {
           name="price"
           value={price === undefined ? "" : String(price)}
           onChange={(e) => setPrice(Number(e.target.value))}
+          min="1"
         />
       </div>
       <div>
@@ -80,6 +81,7 @@ const OrderForm = ({ asset }: { asset: asset_t }) => {
           name="volume"
           value={volume === undefined ? "" : String(volume)}
           onChange={(e) => setVolume(Number(e.target.value))}
+          min="1"
         />
         <button type="submit" className="order">
           ✓

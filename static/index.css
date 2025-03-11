@@ -38,6 +38,10 @@ div.grid-item {
   flex-direction: column;
 }
 
+div.leaderboard-container {
+  grid-row: span 3;
+}
+
 div.asset-container {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -161,17 +165,17 @@ table td:not(:last-child) {
 }
 
 /* Apply a border to the bottom of all but the last row */
-table > thead > tr:not(:last-child) > th,
-table > thead > tr:not(:last-child) > td,
-table > tbody > tr:not(:last-child) > th,
-table > tbody > tr:not(:last-child) > td,
-table > tfoot > tr:not(:last-child) > th,
-table > tfoot > tr:not(:last-child) > td,
-table > tr:not(:last-child) > td,
-table > tr:not(:last-child) > th,
-table > thead:not(:last-child),
-table > tbody:not(:last-child),
-table > tfoot:not(:last-child) {
+table>thead>tr:not(:last-child)>th,
+table>thead>tr:not(:last-child)>td,
+table>tbody>tr:not(:last-child)>th,
+table>tbody>tr:not(:last-child)>td,
+table>tfoot>tr:not(:last-child)>th,
+table>tfoot>tr:not(:last-child)>td,
+table>tr:not(:last-child)>td,
+table>tr:not(:last-child)>th,
+table>thead:not(:last-child),
+table>tbody:not(:last-child),
+table>tfoot:not(:last-child) {
   border-bottom: 1px solid grey;
 }
 

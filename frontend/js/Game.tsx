@@ -1,6 +1,7 @@
 import React, { createContext, useEffect, useRef, useState } from "react";
 
 import {
+  asset_t,
   ASSETS,
   incoming_message_t,
   message_t,
@@ -290,12 +291,13 @@ const Game = () => {
         <StateContext.Provider value={state}>
           <TradesContext.Provider value={trades}>
             <div className="grid-container">
-              {ASSETS.map((asset) => (
-                <AssetInterface asset={asset} key={asset} />
-              ))}
+              <AssetInterface asset={asset_t.CALIFORNIA_ROLL} />
+              <AssetInterface asset={asset_t.SALMON_NIGIRI} />
+              <Leaderboard />
+              <AssetInterface asset={asset_t.EEL_NIGIRI} />
+              <AssetInterface asset={asset_t.UNI_NIGIRI} />
               <Portfolio />
               <PositionInterface />
-              <Leaderboard />
             </div>
           </TradesContext.Provider>
         </StateContext.Provider>

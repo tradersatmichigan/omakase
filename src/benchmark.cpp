@@ -5,7 +5,6 @@
 #include <numeric>
 #include <random>
 #include <ratio>
-#include <thread>
 #include <vector>
 
 #include <glaze/glaze.hpp>
@@ -15,21 +14,21 @@
 
 exchange_t exchange;
 
-static constexpr bool CHECK_STATE = true;
-static constexpr size_t NUM_THREADS = 1;
-static_assert(0 < NUM_THREADS && NUM_THREADS <= NUM_ASSETS);
+static constexpr bool CHECK_STATE = false;
 
 static constexpr int NUM_USERS = MAX_USERS;
-static constexpr int ORDERS_PER_ASSET = 60'000 / NUM_THREADS;
+static constexpr int NUM_ORDERS = 60'000'000;
 
 static constexpr price_t BENCHMARK_CASH = 4'000'000'000;
 static constexpr volume_t BENCHMARK_VOLUME = 100'000'000;
 static constexpr std::array<volume_t, NUM_ASSETS> BENCHMARK_ASSETS = {
-    BENCHMARK_VOLUME, BENCHMARK_VOLUME, BENCHMARK_VOLUME,
-    BENCHMARK_VOLUME, BENCHMARK_VOLUME, BENCHMARK_VOLUME,
+    BENCHMARK_VOLUME,
+    BENCHMARK_VOLUME,
+    BENCHMARK_VOLUME,
+    BENCHMARK_VOLUME,
 };
 static constexpr price_t MIN_PRICE = 1;
-static constexpr price_t MAX_PRICE = 2000;
+static constexpr price_t MAX_PRICE = 200;
 static constexpr price_t MIN_VOLUME = 1;
 static constexpr price_t MAX_VOLUME = 200;
 
@@ -53,9 +52,9 @@ std::vector<order_t> generate_orders(const std::vector<user_t>& users) {
                                                            MAX_VOLUME);
 
   std::vector<order_t> orders;
-  orders.reserve(ORDERS_PER_ASSET);
+  orders.reserve(NUM_ORDERS);
 
-  for (size_t i = 0; i < ORDERS_PER_ASSET; ++i) {
+  for (size_t i = 0; i < NUM_ORDERS; ++i) {
     auto asset = static_cast<asset_t>(asset_generator(e1));
     auto side = static_cast<side_t>(side_generator(e1));
     user_t user = users[id_generator(e1)];
@@ -76,9 +75,9 @@ std::vector<order_t> generate_orders(asset_t asset,
                                                            MAX_VOLUME);
 
   std::vector<order_t> orders;
-  orders.reserve(ORDERS_PER_ASSET);
+  orders.reserve(NUM_ORDERS);
 
-  for (size_t i = 0; i < ORDERS_PER_ASSET; ++i) {
+  for (size_t i = 0; i < NUM_ORDERS; ++i) {
     auto side = static_cast<side_t>(side_generator(e1));
     user_t user = users[id_generator(e1)];
     price_t price = price_generator(e1);
@@ -102,13 +101,13 @@ auto benchmark(const std::vector<user_t>& users) -> void {
     auto t_start = std::chrono::high_resolution_clock::now();
     auto res = exchange.place_order(order);
     auto t_end = std::chrono::high_resolution_clock::now();
-    if (res.unmatched.has_value() && cancel_generator(e1) == 1) {
-      auto cancel_res = exchange.cancel_order(order.asset, order.side,
-                                              res.unmatched.value().id);
-      if (!cancel_res.has_value()) {
-        std::cout << "cancel error\n";
-      }
-    }
+    // if (res.unmatched.has_value() && cancel_generator(e1) == 1) {
+    //   auto cancel_res = exchange.cancel_order(order.asset, order.side,
+    //                                           res.unmatched.value().id);
+    //   if (!cancel_res.has_value()) {
+    //     std::cout << "cancel error\n";
+    //   }
+    // }
     // std::cout << glz::write_json(res).value_or("Error encoding JSON") << '\n';
     if constexpr (CHECK_STATE) {
       exchange.verify_state();
@@ -136,8 +135,6 @@ auto benchmark(const std::vector<user_t>& users) -> void {
 }
 
 auto main() -> int {
-  std::vector<std::thread*> threads(NUM_THREADS);
-
   std::vector<user_t> users = register_users();
   benchmark(users);
 

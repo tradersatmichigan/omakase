@@ -4,7 +4,6 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
-#include <iostream>
 #include <optional>
 #include <random>
 #include <unordered_map>
@@ -35,30 +34,12 @@ struct exchange_t {
       return 0;
     }
     auto user_entry = user_entries[user];
-    volume_t plate_2_count = user_entry.amount_held[*std::ranges::min_element(
-        PLATE_2, [&user_entry](asset_t lhs, asset_t rhs) {
-          return user_entry.amount_held[lhs] < user_entry.amount_held[rhs];
-        })];
-    std::ranges::for_each(PLATE_2, [&user_entry, plate_2_count](asset_t asset) {
-      user_entry.amount_held[asset] -= plate_2_count;
-    });
-    volume_t plate_1_count = user_entry.amount_held[*std::ranges::min_element(
-        PLATE_1, [&user_entry](asset_t lhs, asset_t rhs) {
-          return user_entry.amount_held[lhs] < user_entry.amount_held[rhs];
-        })];
-    std::ranges::for_each(PLATE_1, [&user_entry, plate_1_count](asset_t asset) {
-      user_entry.amount_held[asset] -= plate_1_count;
-    });
+    volume_t plate_count = *std::ranges::min_element(user_entry.amount_held);
     price_t value = user_entry.cash_held;
-    std::ranges::for_each(ASSETS, [&user_entry, &value](asset_t asset) {
+    for (asset_t asset : ASSETS) {
       value += ASSET_VALUES[asset] * user_entry.amount_held[asset];
-    });
-    if (plate_1_count > 0 || plate_2_count > 0) {
-      std::cout << "plate_1_count: " << plate_1_count
-                << "plate_2_count: " << plate_2_count << '\n';
     }
-    value += PLATE_1_VALUE * plate_1_count;
-    value += PLATE_2_VALUE * plate_2_count;
+    value += PLATE_BONUS * plate_count;
     return value;
   }
 
