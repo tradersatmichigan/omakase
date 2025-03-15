@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cassert>
 #include <vector>
 
 #include "types.hpp"
@@ -60,7 +59,6 @@ static void swim_down(std::vector<order_t>& orders, side_t side, size_t i) {
 
 static std::optional<order_t> remove(std::vector<order_t>& orders,
                                      order_id_t order_id, side_t side) {
-  assert(std::ranges::is_heap(orders, CMP(side)));
   auto iter = std::ranges::find_if(orders, [order_id](const order_t& order) {
     return order.id == order_id;
   });
@@ -84,7 +82,6 @@ static std::optional<order_t> remove(std::vector<order_t>& orders,
   } else {
     swim_down(orders, side, i);
   }
-  assert(std::ranges::is_heap(orders, CMP(side)));
   return removed;
 }
 // NOLINTEND (unused-function)

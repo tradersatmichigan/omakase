@@ -4,14 +4,15 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <tuple>
 
 #include <glaze/glaze.hpp>
-#include <tuple>
 #include "App.h"
+#include "glaze/json/read.hpp"
 
 #include "auth.hpp"
 #include "exchange.hpp"
-#include "glaze/json/read.hpp"
 #include "logging.hpp"
 #include "types.hpp"
 
@@ -33,6 +34,7 @@ constexpr int IDLE_TIMEOUT = 10;
 const std::string JSON_ENCODE_ERROR = R"({"error": "Error encoding JSON."})";
 
 exchange_t exchange;
+bool accept = false;
 
 void send_response(uWS::HttpResponse<true>* res, const auto& response) {
   res->end(glz::write_json(response).value_or(JSON_ENCODE_ERROR));
@@ -74,7 +76,7 @@ void handle_register(uWS::HttpResponse<true>* res, uWS::HttpRequest* req) {
   auto username = std::string(req->getQuery("username"));
   auto info = auth::handle_register(username, exchange);
   if (info.has_value()) {
-    logging::log_user(username);
+    logging::log_user(username, info->first, info->second);
     send_response(res, register_response_t{.error = std::nullopt,
                                            .id = info->first,
                                            .secret = info->second});
@@ -156,11 +158,6 @@ void run_api() {
   app.get(LEADERBOARD_URL, get_leaderboard);
   app.post(REGISTER_URL, handle_register);
   app.post(SIGN_IN_URL, handle_sign_in);
-  app.listen(PORT, [](us_listen_socket_t* listen_socket) {
-    if (listen_socket) {
-      api_socket = listen_socket;
-    }
-  });
   app.ws<socket_data>(
       "/ws",
       {
@@ -172,6 +169,9 @@ void run_api() {
           .message =
               [&app](uWS::WebSocket<true, true, socket_data>* ws,
                      std::string_view message, uWS::OpCode op_code) {
+                if (!accept) {
+                  return;
+                }
                 logging::log_message(message);
                 outgoing_message_t outgoing = handle_message(message);
                 if (outgoing.error.has_value()) {
@@ -186,12 +186,22 @@ void run_api() {
                 }
               },
       });
+  app.listen(PORT, [](us_listen_socket_t* listen_socket) {
+    if (listen_socket) {
+      api_socket = listen_socket;
+    }
+  });
   app.run();
 }
 
 int main() {
+  int game_number{};
+  std::cout << "Enter game number: ";
+  std::cin >> game_number;
+  logging::init(game_number);
+
   // replay users
-  std::ifstream users(logging::USERS_FILENAME);
+  std::ifstream users(logging::users_filename);
   if (users.is_open()) {
     std::string username;
     while (getline(users, username)) {
@@ -200,7 +210,7 @@ int main() {
   }
 
   // replay messages
-  std::ifstream messages(logging::MESSAGES_FILENAME);
+  std::ifstream messages(logging::messages_filename);
   if (messages.is_open()) {
     std::string message;
     while (getline(messages, message)) {
@@ -208,5 +218,25 @@ int main() {
     }
   }
 
-  run_api();
+  std::thread api_thread(run_api);
+
+  std::string input;
+  std::cout << "Type \"start\" to start the game: ";
+  while (std::cin >> input && input != "start") {
+    std::cout << "Type \"start\" to start the game: ";
+  }
+  accept = true;
+
+  std::cout << "Type \"end\" to end the game: ";
+  while (std::cin >> input && input != "end") {
+    std::cout << "Type \"end\" to end the game: ";
+  }
+  accept = false;
+  if (api_socket != nullptr) {
+    us_listen_socket_close(0, api_socket);
+  }
+
+  logging::log_leaderboard(exchange.get_leaderboard());
+
+  api_thread.join();
 }

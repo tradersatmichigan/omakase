@@ -258,7 +258,7 @@ const Game = () => {
       if (ws.current !== undefined) {
         return;
       }
-      const wsUrl = `ws://${window.location.host}/ws`;
+      const wsUrl = `wss://${window.location.host}/ws`;
       ws.current = new WebSocket(wsUrl);
       ws.current.onclose = (e) => {
         console.info("WebSocket closed. Reconnecting...");
