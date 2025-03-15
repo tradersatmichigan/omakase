@@ -37,7 +37,7 @@ static void init(int game_number) {
   users_file = std::ofstream(users_filename, std::ios::app);
   messages_file = std::ofstream(messages_filename, std::ios::app);
   secrets_file = std::ofstream(secrets_filename, std::ios::app);
-  leaderboard_file = std::ofstream(leaderboard_filename, std::ios::app);
+  leaderboard_file = std::ofstream(leaderboard_filename);
 }
 
 static void log_user(const std::string& username, user_t user_id,
